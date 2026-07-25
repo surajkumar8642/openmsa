@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmsa.dev/schemas/sales-bill.schema.json",
+  "title": "SalesBillResource",
+  "allOf": [
+    { "$ref": "./resource-envelope.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "SalesBill" },
+    "claims": {
+      "type": "object",
+      "required": ["receiverMobileHash", "receiverSubjectId"],
+      "properties": {
+        "receiverMobileHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "receiverSubjectId": { "type": "string" },
+        "billNumber": { "type": "string" }
+      }
+    }
+  }
+}

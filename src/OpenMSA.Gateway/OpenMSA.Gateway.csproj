@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenMSA.Core\OpenMSA.Core.csproj" />
+    <ProjectReference Include="..\OpenMSA.Identity\OpenMSA.Identity.csproj" />
+    <ProjectReference Include="..\OpenMSA.Policy\OpenMSA.Policy.csproj" />
+    <ProjectReference Include="..\OpenMSA.Index\OpenMSA.Index.csproj" />
+    <ProjectReference Include="..\OpenMSA.Storage\OpenMSA.Storage.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

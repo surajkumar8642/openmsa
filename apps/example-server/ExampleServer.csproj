@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OpenMSA.Core\OpenMSA.Core.csproj" />
+    <ProjectReference Include="..\..\src\OpenMSA.Identity\OpenMSA.Identity.csproj" />
+    <ProjectReference Include="..\..\src\OpenMSA.Policy\OpenMSA.Policy.csproj" />
+    <ProjectReference Include="..\..\src\OpenMSA.Index\OpenMSA.Index.csproj" />
+    <ProjectReference Include="..\..\src\OpenMSA.Storage\OpenMSA.Storage.csproj" />
+    <ProjectReference Include="..\..\src\OpenMSA.Gateway\OpenMSA.Gateway.csproj" />
+  </ItemGroup>
+
+</Project>

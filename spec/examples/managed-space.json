@@ -1,0 +1,24 @@
+{
+  "apiVersion": "openmsa.io/v1alpha1",
+  "kind": "ManagedSpace",
+  "metadata": {
+    "spaceId": "spc_01J...",
+    "ownerSubjectId": "usr_01J...",
+    "name": "Example Supplier"
+  },
+  "spec": {
+    "globalContractVersion": "1.0.0",
+    "sections": {
+      "private": {
+        "operations": ["read", "write", "delete"]
+      },
+      "inbox": {
+        "operations": ["deposit"]
+      },
+      "salesBills": {
+        "operations": ["deposit", "query", "read"],
+        "policy": "policies/sales-bills.json"
+      }
+    }
+  }
+}

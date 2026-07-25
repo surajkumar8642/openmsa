@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmsa.dev/schemas/policy.schema.json",
+  "title": "PolicyDocument",
+  "type": "object",
+  "required": ["version", "default", "rules"],
+  "properties": {
+    "version": { "type": "string" },
+    "default": { "type": "string", "enum": ["allow", "deny"] },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": ["id", "effect", "operations"],
+      "properties": {
+        "id": { "type": "string" },
+        "effect": { "type": "string", "enum": ["allow", "deny"] },
+        "operations": { "type": "array", "items": { "type": "string" } },
+        "when": { "$ref": "#/$defs/condition" }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "all": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "any": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "field": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": { "type": "string" } } }
+      }
+    }
+  }
+}

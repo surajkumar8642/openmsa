@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmsa.dev/schemas/managed-space.schema.json",
+  "title": "ManagedSpaceManifest",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "type": "string" },
+    "kind": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "required": ["spaceId", "ownerSubjectId", "name"],
+      "properties": {
+        "spaceId": { "type": "string" },
+        "ownerSubjectId": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["globalContractVersion", "sections"],
+      "properties": {
+        "globalContractVersion": { "type": "string" },
+        "sections": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-zA-Z0-9_-]+$": {
+              "type": "object",
+              "required": ["operations"],
+              "properties": {
+                "operations": { "type": "array", "items": { "type": "string" } },
+                "policy": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

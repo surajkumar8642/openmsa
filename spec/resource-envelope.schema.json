@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmsa.dev/schemas/resource-envelope.schema.json",
+  "title": "ResourceEnvelope",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "properties": {
+    "apiVersion": { "type": "string" },
+    "kind": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "required": ["resourceId", "spaceId", "createdBy", "createdAt", "schemaVersion"],
+      "properties": {
+        "resourceId": { "type": "string" },
+        "spaceId": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "schemaVersion": { "type": "string" }
+      }
+    },
+    "claims": { "type": "object", "additionalProperties": { "type": "string" } },
+    "spec": {},
+    "storageObjectRef": { "type": "string" }
+  }
+}

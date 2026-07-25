@@ -1,0 +1,20 @@
+{
+  "apiVersion": "openmsa.io/v1alpha1",
+  "kind": "SalesBill",
+  "metadata": {
+    "resourceId": "",
+    "spaceId": "spc_01J...",
+    "createdBy": "usr_01J...",
+    "createdAt": "2026-07-25T00:00:00.000Z",
+    "schemaVersion": "1.0.0"
+  },
+  "claims": {
+    "receiverMobileHash": "4d4bf0f3e4f2fd0f5d8f6b2be95f8f7f9e1b4f0c3bc9f2f8ab5f6a0d1e2c3b4a5",
+    "receiverSubjectId": "usr_01J_receiver",
+    "billNumber": "INV-001"
+  },
+  "spec": {
+    "amount": 1000,
+    "currency": "USD"
+  }
+}

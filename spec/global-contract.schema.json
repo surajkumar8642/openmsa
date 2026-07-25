@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openmsa.dev/schemas/global-contract.schema.json",
+  "title": "GlobalContract",
+  "type": "object",
+  "required": ["name", "version", "allowedSections", "reservedSections", "mandatoryOperations", "maxPageSize"],
+  "properties": {
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "allowedSections": { "type": "array", "items": { "type": "string" } },
+    "reservedSections": { "type": "array", "items": { "type": "string" } },
+    "mandatoryOperations": { "type": "array", "items": { "type": "string" } },
+    "mandatoryPolicyOperators": { "type": "array", "items": { "type": "string" } },
+    "maxPageSize": { "type": "integer", "minimum": 1 },
+    "maxResourceBytes": { "type": "integer", "minimum": 1 },
+    "defaultMaxResults": { "type": "integer", "minimum": 1 },
+    "authzRequestTTL": { "type": "string" },
+    "requirements": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

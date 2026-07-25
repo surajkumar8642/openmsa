@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "default": "deny",
+  "rules": [
+    {
+      "id": "owner-full-access",
+      "effect": "allow",
+      "operations": ["create", "read", "update", "delete", "query"],
+      "when": {
+        "field": {
+          "subject.id": { "equalsResource": "ownerSubjectId" }
+        }
+      }
+    },
+    {
+      "id": "receiver-can-read",
+      "effect": "allow",
+      "operations": ["read", "query"],
+      "when": {
+        "all": [
+          {
+            "field": {
+              "subject.mobile_verified": { "equals": "true" },
+              "subject.mobile_hash": { "equalsResource": "receiverMobileHash" }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
