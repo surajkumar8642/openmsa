@@ -133,7 +133,7 @@ public sealed class SqliteIndexAdapter : IIndexAdapter, IAsyncDisposable
             parameters.Add(new("@cursor", query.Cursor));
         }
 
-        var sqlText = $"SELECT resource_id, space_id, section, resource_type, receiver_subject_id, receiver_mobile_hash, bill_number, created_at, status, storage_object_ref FROM index_records WHERE {string.Join(" AND ", filters)} ORDER BY created_at DESC LIMIT @limit";
+        var sqlText = $"SELECT resource_id, space_id, section, resource_type, receiver_subject_id, receiver_mobile_hash, bill_number, created_at, status, storage_object_ref FROM index_records WHERE {string.Join(" AND ", filters)} ORDER BY resource_id ASC LIMIT @limit";
 
         await using var cmd = _connection.CreateCommand();
         cmd.CommandText = sqlText;

@@ -62,6 +62,7 @@ builder.Services.AddSingleton<LocalFileStorage>(_ =>
 builder.Services.AddSingleton<IStorageAdapter>(sp => sp.GetRequiredService<LocalFileStorage>());
 builder.Services.AddSingleton<FixedWindowRateLimiter>();
 builder.Services.AddSingleton<IRateLimiter>(sp => sp.GetRequiredService<FixedWindowRateLimiter>());
+builder.Services.AddSingleton<IIndexAdapter>(sp => sp.GetRequiredService<SqliteIndexAdapter>());
 builder.Services.AddSingleton<GatewayService>();
 
 var app = builder.Build();
@@ -143,9 +144,12 @@ app.MapPost("/v1/auth/login", async (IdentityService identity, LoginRequest req)
 app.MapPost("/v1/spaces", async (GatewayService gateway, HttpContext http) =>
 {
     var token = ExtractBearer(http);
+    if (string.IsNullOrWhiteSpace(token))
+        return UnauthorizedProblem("Bearer token required.");
+
     var request = await http.Request.ReadFromJsonAsync<SpaceCreateRequest>() ?? new SpaceCreateRequest(string.Empty);
-    if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(request.Name))
-        return Results.Problem(type: "https://openmsa.dev/problem/input", statusCode: 400, title: "Bad request", detail: "missing fields");
+    if (string.IsNullOrWhiteSpace(request.Name))
+        return InvalidInputProblem("name is required.");
 
     var result = await gateway.CreateSpaceAsync(request.Name, token);
     return result.Success
@@ -165,7 +169,7 @@ app.MapPost("/v1/spaces/{spaceRef}/inbox", async (string spaceRef, HttpContext h
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
+        return UnauthorizedProblem("Bearer token required.");
     var json = await new StreamReader(http.Request.Body).ReadToEndAsync();
     var result = await gateway.DepositInboxAsync(spaceRef, token, json);
     if (!result.Success)
@@ -177,8 +181,12 @@ app.MapGet("/v1/spaces/{spaceRef}/resources", async (string spaceRef, string? re
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
+        return UnauthorizedProblem("Bearer token required.");
+
     var targetSection = section ?? "salesBills";
+    if (string.IsNullOrWhiteSpace(targetSection))
+        return InvalidInputProblem("section is required.");
+
     var result = await gateway.ListResourcesAsync(spaceRef, targetSection, token, receiverMobileHash, cursor, limit == 0 ? 25 : limit);
     return result.Success
         ? Results.Ok(result.Value)
@@ -189,7 +197,8 @@ app.MapGet("/v1/spaces/{spaceRef}/resources/{resourceId}", async (string spaceRe
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
+        return UnauthorizedProblem("Bearer token required.");
+
     var result = await gateway.GetResourceAsync(spaceRef, section ?? "salesBills", resourceId, token);
     return result.Success
         ? Results.Ok(result.Value)
@@ -200,10 +209,13 @@ app.MapPost("/v1/spaces/{spaceRef}/resources", async (string spaceRef, HttpConte
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
+        return UnauthorizedProblem("Bearer token required.");
     var section = http.Request.Query["section"].ToString();
+    if (string.IsNullOrWhiteSpace(section))
+        section = "salesBills";
+
     var body = await new StreamReader(http.Request.Body).ReadToEndAsync();
-    var result = await gateway.CreateResourceAsync(spaceRef, string.IsNullOrWhiteSpace(section) ? "salesBills" : section!, token, body);
+    var result = await gateway.CreateResourceAsync(spaceRef, section, token, body);
     return result.Success ? Results.Ok(result.Value) : NotFoundOrGeneric(result);
 });
 
@@ -211,9 +223,11 @@ app.MapPatch("/v1/spaces/{spaceRef}/resources/{resourceId}", async (string space
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
+        return UnauthorizedProblem("Bearer token required.");
+    var targetSection = string.IsNullOrWhiteSpace(section) ? "salesBills" : section;
+
     var body = await new StreamReader(http.Request.Body).ReadToEndAsync();
-    var result = await gateway.UpdateResourceAsync(spaceRef, section ?? "salesBills", resourceId, token, body);
+    var result = await gateway.UpdateResourceAsync(spaceRef, targetSection, resourceId, token, body);
     return result.Success ? Results.Ok(result.Value) : NotFoundOrGeneric(result);
 });
 
@@ -221,8 +235,10 @@ app.MapDelete("/v1/spaces/{spaceRef}/resources/{resourceId}", async (string spac
 {
     var token = ExtractBearer(http);
     if (string.IsNullOrWhiteSpace(token))
-        return Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: "Bearer token required.");
-    var result = await gateway.DeleteResourceAsync(spaceRef, section ?? "private", resourceId, token);
+        return UnauthorizedProblem("Bearer token required.");
+    var targetSection = string.IsNullOrWhiteSpace(section) ? "salesBills" : section;
+
+    var result = await gateway.DeleteResourceAsync(spaceRef, targetSection, resourceId, token);
     return result.Success ? Results.Ok(new { deleted = true }) : NotFoundOrGeneric(result);
 });
 
@@ -245,4 +261,12 @@ IResult NotFoundOrGeneric<T>(GatewayResult<T> result)
     return Results.Problem(type: "https://openmsa.dev/problem/gateway", statusCode: status, title: status == 404 ? "Not Found" : "Bad Request", detail: message);
 }
 
+IResult UnauthorizedProblem(string detail)
+    => Results.Problem(type: "https://openmsa.dev/problem/auth", statusCode: 401, title: "Unauthorized", detail: detail);
+
+IResult InvalidInputProblem(string detail)
+    => Results.Problem(type: "https://openmsa.dev/problem/input", statusCode: 400, title: "Bad request", detail: detail);
+
 record SpaceCreateRequest(string Name);
+
+public partial class Program;

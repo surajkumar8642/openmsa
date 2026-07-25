@@ -38,6 +38,213 @@ public class GatewayBehaviorTests
     }
 
     [Fact]
+    public async Task List_resources_uses_cursor_pagination_deterministically()
+    {
+        var (gateway, identity, _, policyStore, _) = BuildGateway();
+        var owner = await Register(identity, "+1-555-020-1000", "owner");
+        var ownerToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-1000", "Passw0rd!"), "openmsa-gateway");
+
+        var spaceResult = await gateway.CreateSpaceAsync("CursorSpace", ownerToken.AccessToken);
+        Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
+        var spaceRef = spaceResult.Value!;
+
+        policyStore.Add(spaceRef, "policies/sales-bills.json",
+            new PolicyDocument(
+                "1.0",
+                "deny",
+                [
+                    new PolicyRule(
+                        "owner-read",
+                        "allow",
+                        ["read", "query"],
+                        null)
+                ]));
+
+        var ids = new[] { "res_1000000000", "res_2000000000", "res_3000000000", "res_4000000000", "res_5000000000" };
+
+        foreach (var id in ids)
+        {
+            var payload = new ResourceEnvelope(
+                "openmsa.io/v1alpha1",
+                "SalesBill",
+                new ResourceMetadata(id, spaceRef, owner.SubjectId, "1.0.0", DateTimeOffset.UtcNow),
+                new Dictionary<string, string> { ["receiverMobileHash"] = owner.MobileHash },
+                new { amount = 1 },
+                string.Empty);
+
+            var create = await gateway.CreateResourceAsync(spaceRef, "salesBills", ownerToken.AccessToken, JsonSerializer.Serialize(payload));
+            Assert.True(create.Success, $"create-resource failed for {id}: {create.Message}");
+        }
+
+        var page1 = await gateway.ListResourcesAsync(spaceRef, "salesBills", ownerToken.AccessToken, null, null, 2);
+        Assert.True(page1.Success);
+        Assert.NotNull(page1.Value);
+        Assert.Equal(2, page1.Value!.Items.Count);
+        Assert.Equal(new[] { ids[0], ids[1] }, page1.Value.Items.Select(x => x.ResourceId).ToArray());
+        Assert.Equal(ids[1], page1.Value.NextCursor);
+
+        var page2 = await gateway.ListResourcesAsync(spaceRef, "salesBills", ownerToken.AccessToken, null, page1.Value.NextCursor, 2);
+        Assert.True(page2.Success);
+        Assert.NotNull(page2.Value);
+        Assert.Equal(2, page2.Value!.Items.Count);
+        Assert.Equal(new[] { ids[2], ids[3] }, page2.Value.Items.Select(x => x.ResourceId).ToArray());
+        Assert.Equal(ids[3], page2.Value.NextCursor);
+
+        var page3 = await gateway.ListResourcesAsync(spaceRef, "salesBills", ownerToken.AccessToken, null, page2.Value.NextCursor, 2);
+        Assert.True(page3.Success);
+        Assert.NotNull(page3.Value);
+        Assert.Single(page3.Value.Items);
+        Assert.Equal(ids[4], page3.Value.Items[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task Rate_limiter_prevents_create_and_query_without_leaking_details()
+    {
+        var limiter = new ScriptedRateLimiter((_, endpoint) => endpoint != "salesBills:create" && endpoint != "salesBills:query");
+        var (gateway, identity, _, _, _) = BuildGateway(limiter);
+        var owner = await Register(identity, "+1-555-020-2000", "owner");
+        var token = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-2000", "Passw0rd!"), "openmsa-gateway");
+
+        var spaceResult = await gateway.CreateSpaceAsync("NoisySpace", token.AccessToken);
+        Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
+        var spaceRef = spaceResult.Value!;
+
+        var resource = new ResourceEnvelope(
+            "openmsa.io/v1alpha1",
+            "SalesBill",
+            new ResourceMetadata(string.Empty, spaceRef, owner.SubjectId, "1.0.0", DateTimeOffset.UtcNow),
+            new Dictionary<string, string> { ["receiverMobileHash"] = owner.MobileHash },
+            new { amount = 50 },
+            string.Empty);
+
+        var create = await gateway.CreateResourceAsync(spaceRef, "salesBills", token.AccessToken, JsonSerializer.Serialize(resource));
+        Assert.False(create.Success);
+        Assert.Equal(GatewayErrorType.NotFoundOrForbidden, create.Error);
+
+        var first = await gateway.ListResourcesAsync(spaceRef, "salesBills", token.AccessToken, null, null, 10);
+        Assert.True(first.Success);
+        Assert.NotNull(first.Value);
+        Assert.Empty(first.Value.Items);
+    }
+
+    [Fact]
+    public async Task Global_policy_restrictions_apply_even_if_local_policy_allows()
+    {
+        var (gateway, identity, _, policyStore, _) = BuildGateway();
+        var owner = await Register(identity, "+1-555-020-3000", "owner");
+        var outsider = await Register(identity, "+1-555-020-3001", "outsider");
+
+        var ownerToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-3000", "Passw0rd!"), "openmsa-gateway");
+        var outsiderToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-3001", "Passw0rd!"), "openmsa-gateway");
+
+        var spaceResult = await gateway.CreateSpaceAsync("GlobalPolicyScope", ownerToken.AccessToken);
+        Assert.True(spaceResult.Success);
+        var spaceRef = spaceResult.Value!;
+
+        policyStore.Add("global", "policies/sales-bills.json",
+            new PolicyDocument(
+                "1.0",
+                "deny",
+                [
+                    new PolicyRule(
+                        "global-deny",
+                        "deny",
+                        ["read", "query"],
+                        null)
+                ]));
+
+        policyStore.Add(spaceRef, "policies/sales-bills.json",
+            new PolicyDocument(
+                "1.0",
+                "deny",
+                [
+                    new PolicyRule(
+                        "local-allow",
+                        "allow",
+                        ["read", "query"],
+                        null)
+                ]));
+
+        var resource = new ResourceEnvelope(
+            "openmsa.io/v1alpha1",
+            "SalesBill",
+            new ResourceMetadata(string.Empty, spaceRef, owner.SubjectId, "1.0.0", DateTimeOffset.UtcNow),
+            new Dictionary<string, string>
+            {
+                ["receiverMobileHash"] = outsider.MobileHash,
+                ["receiverSubjectId"] = outsider.SubjectId,
+                ["billNumber"] = "POLICY-1"
+            },
+            new { amount = 11 },
+            string.Empty);
+
+        var created = await gateway.CreateResourceAsync(spaceRef, "salesBills", ownerToken.AccessToken, JsonSerializer.Serialize(resource));
+        Assert.True(created.Success);
+
+        var ownerList = await gateway.ListResourcesAsync(spaceRef, "salesBills", ownerToken.AccessToken, null, null, 10);
+        Assert.True(ownerList.Success);
+        Assert.Single(ownerList.Value!.Items);
+
+        var outsiderList = await gateway.ListResourcesAsync(spaceRef, "salesBills", outsiderToken.AccessToken, null, null, 10);
+        Assert.True(outsiderList.Success);
+        Assert.Empty(outsiderList.Value!.Items);
+
+        var outsiderRead = await gateway.GetResourceAsync(spaceRef, "salesBills", created.Value!.Metadata.ResourceId, outsiderToken.AccessToken);
+        Assert.False(outsiderRead.Success);
+    }
+
+    [Fact]
+    public async Task Inbox_deposit_keeps_reference_to_canonical_object()
+    {
+        var (gateway, identity, _, _, storage) = BuildGateway();
+        var owner = await Register(identity, "+1-555-020-4000", "owner");
+        var sender = await Register(identity, "+1-555-020-4001", "sender");
+
+        var ownerToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-4000", "Passw0rd!"), "openmsa-gateway");
+        var senderToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-020-4001", "Passw0rd!"), "openmsa-gateway");
+
+        var spaceResult = await gateway.CreateSpaceAsync("CanonicalRefSpace", ownerToken.AccessToken);
+        Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
+        var spaceRef = spaceResult.Value!;
+
+        var outbox = new ResourceEnvelope(
+            "openmsa.io/v1alpha1",
+            "SalesBill",
+            new ResourceMetadata(string.Empty, spaceRef, owner.SubjectId, "1.0.0", DateTimeOffset.UtcNow),
+            new Dictionary<string, string>
+            {
+                ["receiverMobileHash"] = sender.MobileHash,
+                ["receiverSubjectId"] = sender.SubjectId,
+                ["billNumber"] = "CAN-1"
+            },
+            new { amount = 1000 },
+            string.Empty);
+
+        var created = await gateway.CreateResourceAsync(spaceRef, "salesBills", ownerToken.AccessToken, JsonSerializer.Serialize(outbox));
+        Assert.True(created.Success, $"create-resource failed: {created.Message}");
+        Assert.NotNull(created.Value!.StorageObjectRef);
+
+        var deposit = await gateway.DepositInboxAsync(spaceRef, senderToken.AccessToken,
+            JsonSerializer.Serialize(new
+            {
+                ResourceId = IdGenerator.NewId(IdSchemes.Resource),
+                StorageObjectRef = created.Value.StorageObjectRef,
+                Claims = new Dictionary<string, string>
+                {
+                    ["receiverMobileHash"] = sender.MobileHash,
+                    ["receiverSubjectId"] = sender.SubjectId
+                }
+            }));
+        Assert.True(deposit.Success, $"deposit failed: {deposit.Error} {deposit.Message}");
+        Assert.Equal(created.Value.StorageObjectRef, deposit.Value!.StorageObjectRef);
+
+        var ownerRead = await gateway.GetResourceAsync(spaceRef, "inbox", deposit.Value.Metadata.ResourceId, ownerToken.AccessToken);
+        Assert.True(ownerRead.Success);
+        Assert.Equal(created.Value.StorageObjectRef, ownerRead.Value!.StorageObjectRef);
+        Assert.NotNull(storage);
+    }
+
+    [Fact]
     public async Task Owner_can_create_and_read_sales_bill_resource()
     {
         var (gateway, identity, _, _, _) = BuildGateway();
@@ -434,12 +641,20 @@ public class GatewayBehaviorTests
         }
     }
 
+    private sealed class ScriptedRateLimiter(Func<string, string, bool> allow)
+        : IRateLimiter
+    {
+        public Task<bool> IsAllowedAsync(string key, string endpoint, CancellationToken cancellationToken = default)
+            => Task.FromResult(allow(key, endpoint));
+    }
+
     private static async Task<IdentityUser> Register(IdentityService identity, string mobile, string role)
     {
         return await identity.RegisterAsync(new RegisterUserRequest(mobile, "Passw0rd!", [role]));
     }
 
-    private static (GatewayService Gateway, IdentityService Identity, InMemoryManifestStore ManifestStore, InMemoryPolicyStore PolicyStore, LocalFileStorage Storage) BuildGateway()
+    private static (GatewayService Gateway, IdentityService Identity, InMemoryManifestStore ManifestStore, InMemoryPolicyStore PolicyStore, LocalFileStorage Storage) BuildGateway(
+        IRateLimiter? rateLimiter = null)
     {
         var keyRing = new IdentityKeyRing();
         keyRing.GenerateNew("server");
@@ -471,7 +686,7 @@ public class GatewayBehaviorTests
             storage,
             new DeclarativePolicyEvaluator(),
             new NoopAuditSink(),
-            new FixedWindowRateLimiter());
+            rateLimiter ?? new FixedWindowRateLimiter());
 
         return (gateway, identity, manifestStore, policyStore, storage);
     }

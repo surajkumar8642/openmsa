@@ -11,6 +11,11 @@ namespace OpenMSA.Gateway;
 
 public sealed class GatewayService
 {
+    private static readonly JsonSerializerOptions ApiJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private static readonly Regex OpaqueId = new("^[A-Za-z0-9_-]{10,}$", RegexOptions.Compiled);
     private static readonly OperationKind[] QueryOnly = [OperationKind.Query];
     private static readonly OperationKind[] ReadOnly = [OperationKind.Read];
@@ -122,7 +127,7 @@ public sealed class GatewayService
         InboxDepositRequest? request;
         try
         {
-            request = JsonSerializer.Deserialize<InboxDepositRequest>(json);
+            request = JsonSerializer.Deserialize<InboxDepositRequest>(json, ApiJsonOptions);
         }
         catch
         {
@@ -177,7 +182,7 @@ public sealed class GatewayService
             return GenericResponses.Ok(new PagedResourceResponse(Array.Empty<ResourceSummary>()));
 
         limit = Math.Clamp(limit, 1, 50);
-        var records = await _index.QueryAsync(new IndexQuery(manifest.Metadata.SpaceId, section, mobileHash, subject.Id, null, limit, cursor), cancellationToken);
+        var records = await _index.QueryAsync(new IndexQuery(manifest.Metadata.SpaceId, section, mobileHash, null, null, limit, cursor), cancellationToken);
 
         var allowed = new List<ResourceSummary>();
         foreach (var r in records)
@@ -224,7 +229,7 @@ public sealed class GatewayService
             return GenericResponses.ForbiddenOrNotFound<ResourceEnvelope>();
 
         var content = await _storage.GetAsync(indexRecord.StorageObjectRef, cancellationToken);
-        var envelope = JsonSerializer.Deserialize<ResourceEnvelope>(Encoding.UTF8.GetString(content));
+        var envelope = JsonSerializer.Deserialize<ResourceEnvelope>(Encoding.UTF8.GetString(content), ApiJsonOptions);
         if (envelope is null) return GenericResponses.Invalid<ResourceEnvelope>("invalid stored object");
         await _audit.RecordAsync(new AuditEvent(DateTimeOffset.UtcNow, AuditEventType.AuthorizedRead, manifest.Metadata.SpaceId, subject.Id, "read", resourceId, "allow"));
         return GenericResponses.Ok(envelope);
@@ -276,7 +281,7 @@ public sealed class GatewayService
         ResourceEnvelope? provided;
         try
         {
-            provided = JsonSerializer.Deserialize<ResourceEnvelope>(json);
+            provided = JsonSerializer.Deserialize<ResourceEnvelope>(json, ApiJsonOptions);
         }
         catch
         {
@@ -319,11 +324,12 @@ public sealed class GatewayService
             return GenericResponses.ForbiddenOrNotFound<ResourceEnvelope>();
 
         var canonical = IdGenerator.NewId("obj");
-        var stored = await _storage.PutAsync(canonical, Encoding.UTF8.GetBytes(JsonSerializer.Serialize(provided)), "application/json", cancellationToken);
-        var indexRecord = ToIndexRecord(manifest.Metadata.SpaceId, section, provided, "accepted", stored.ObjectId);
+        var persisted = provided with { StorageObjectRef = canonical };
+        var stored = await _storage.PutAsync(canonical, Encoding.UTF8.GetBytes(JsonSerializer.Serialize(persisted)), "application/json", cancellationToken);
+        var indexRecord = ToIndexRecord(manifest.Metadata.SpaceId, section, persisted, "accepted", stored.ObjectId);
         await _index.UpsertAsync(indexRecord, cancellationToken);
         await _audit.RecordAsync(new AuditEvent(DateTimeOffset.UtcNow, AuditEventType.AuthorizedRead, manifest.Metadata.SpaceId, subject.Id, op.ToString(), provided.Metadata.ResourceId, "allow"));
-        return GenericResponses.Ok(provided with { StorageObjectRef = stored.ObjectId });
+        return GenericResponses.Ok(persisted);
     }
 
     private bool ResourceClaimsAllowed(IReadOnlyDictionary<string, string>? claims)
@@ -357,7 +363,7 @@ public sealed class GatewayService
 
     private async Task<bool> AuthorizeOperationAsync(SubjectClaims subject, ManagedSpaceManifest manifest, string section, OperationKind operation)
     {
-        if (!await _rateLimiter.IsAllowedAsync(manifest.Metadata.SpaceId, $"{section}:{operation}", CancellationToken.None))
+        if (!await _rateLimiter.IsAllowedAsync(manifest.Metadata.SpaceId, $"{section}:{operation.ToString().ToLowerInvariant()}", CancellationToken.None))
             return false;
 
         if (!manifest.Spec.Sections.TryGetValue(section, out var sectionDef))
@@ -375,12 +381,32 @@ public sealed class GatewayService
         if (!manifest.Spec.Sections.TryGetValue(section, out var sectionDef))
             return false;
 
-        var policy = await _policies.GetPolicyAsync(manifest.Metadata.SpaceId, sectionDef.PolicyRef ?? string.Empty);
-        if (policy is null) return false;
+        var policyRef = sectionDef.PolicyRef ?? string.Empty;
+        var globalPolicy = await _policies.GetPolicyAsync("global", policyRef, CancellationToken.None);
+        var localPolicy = await _policies.GetPolicyAsync(manifest.Metadata.SpaceId, policyRef, CancellationToken.None);
+
+        var hasGlobalDecision = false;
+        var anyDeny = false;
+        var anyAllow = false;
 
         foreach (var operation in operations)
         {
-            var decision = _policyEvaluator.Evaluate(policy, subject, operation.ToString().ToLowerInvariant(), indexRecord.ResourceType,
+            var op = operation.ToString().ToLowerInvariant();
+
+            var globalDecision = globalPolicy is null
+                ? null
+                : _policyEvaluator.Evaluate(globalPolicy, subject, op, indexRecord.ResourceType,
+                    new Dictionary<string, object?>
+                    {
+                        ["receiverSubjectId"] = indexRecord.ReceiverSubjectId,
+                        ["receiverMobileHash"] = indexRecord.ReceiverMobileHash,
+                        ["resourceType"] = indexRecord.ResourceType,
+                        ["billNumber"] = indexRecord.BillNumber
+                    }!);
+
+            var localDecision = localPolicy is null
+                ? null
+                : _policyEvaluator.Evaluate(localPolicy, subject, op, indexRecord.ResourceType,
                 new Dictionary<string, object?>
                 {
                     ["receiverSubjectId"] = indexRecord.ReceiverSubjectId,
@@ -388,10 +414,36 @@ public sealed class GatewayService
                     ["resourceType"] = indexRecord.ResourceType,
                     ["billNumber"] = indexRecord.BillNumber
                 }!);
-            if (decision.IsAllowed) return true;
+
+            if (globalDecision is not null)
+            {
+                hasGlobalDecision = true;
+                if (!globalDecision.IsAllowed)
+                {
+                    anyDeny = true;
+                }
+                else
+                {
+                    anyAllow = true;
+                }
+            }
+
+            if (localDecision is not null)
+            {
+                if (!localDecision.IsAllowed)
+                {
+                    anyDeny = true;
+                }
+                else
+                {
+                    anyAllow = true;
+                }
+            }
         }
 
-        return false;
+        return hasGlobalDecision || localPolicy is not null
+            ? !anyDeny && anyAllow
+            : anyAllow;
     }
 
     private static ResourceSummary ToSummary(IndexRecord record)
