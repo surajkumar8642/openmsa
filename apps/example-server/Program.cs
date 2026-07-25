@@ -112,10 +112,7 @@ var policy = new PolicyDocument(
     });
 policyStore.Add("global", "policies/sales-bills.json", policy);
 
-app.MapGet("/.well-known/jwks.json", async (IdentityService identity) =>
-{
-    return Results.Content(identity.PublicJwks(), "application/json");
-});
+app.MapGet("/.well-known/jwks.json", (IdentityService identity) => Results.Content(identity.PublicJwks(), "application/json"));
 
 app.MapPost("/v1/auth/register", async (IdentityService identity, RegisterUserRequest req) =>
 {

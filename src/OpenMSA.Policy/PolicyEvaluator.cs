@@ -143,6 +143,11 @@ public static class PolicySchema
         if (string.IsNullOrWhiteSpace(policy.Version)) list.Add("version is required.");
         if (string.IsNullOrWhiteSpace(policy.Default)) list.Add("default is required.");
         if (policy.Rules is null) list.Add("rules is required.");
+        if (policy.Rules is null)
+        {
+            errors = list;
+            return false;
+        }
         foreach (var rule in policy.Rules)
         {
             if (string.IsNullOrWhiteSpace(rule.Id))

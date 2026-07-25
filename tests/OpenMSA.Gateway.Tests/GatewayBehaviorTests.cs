@@ -18,7 +18,7 @@ public class GatewayBehaviorTests
 
         var spaceResult = await gateway.CreateSpaceAsync("Supplier", token.AccessToken);
         Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
-        var spaceRef = spaceResult.Value;
+        var spaceRef = spaceResult.Value!;
 
         var envelope = new ResourceEnvelope(
             "openmsa.io/v1alpha1",
@@ -36,9 +36,10 @@ public class GatewayBehaviorTests
         var created = await gateway.CreateResourceAsync(spaceRef, "private", token.AccessToken, JsonSerializer.Serialize(envelope));
         Assert.True(created.Success, $"create-resource failed: {created.Message}");
 
-        var read = await gateway.GetResourceAsync(spaceRef, "private", created.Value.Metadata.ResourceId, token.AccessToken);
+        var read = await gateway.GetResourceAsync(spaceRef, "private", created.Value!.Metadata.ResourceId, token.AccessToken);
         Assert.True(read.Success);
-        Assert.Equal("SalesBill", read.Value.Kind);
+        Assert.NotNull(read.Value);
+        Assert.Equal("SalesBill", read.Value!.Kind);
     }
 
     [Fact]
@@ -52,7 +53,7 @@ public class GatewayBehaviorTests
         var visitorToken = await identity.AuthenticateAsync(new LoginRequest("+1-555-010-2001", "Passw0rd!"), "openmsa-gateway");
 
         var spaceResult = await gateway.CreateSpaceAsync("PrivateSpace", ownerToken.AccessToken);
-        var spaceId = spaceResult.Value;
+        var spaceId = spaceResult.Value!;
 
         var envelope = new ResourceEnvelope(
             "openmsa.io/v1alpha1",
@@ -65,7 +66,8 @@ public class GatewayBehaviorTests
         var created = await gateway.CreateResourceAsync(spaceId, "private", ownerToken.AccessToken, JsonSerializer.Serialize(envelope));
         Assert.True(created.Success);
 
-        var byVisitor = await gateway.GetResourceAsync(spaceId, "private", created.Value.Metadata.ResourceId, visitorToken.AccessToken);
+        Assert.NotNull(created.Value);
+        var byVisitor = await gateway.GetResourceAsync(spaceId, "private", created.Value!.Metadata.ResourceId, visitorToken.AccessToken);
         Assert.False(byVisitor.Success);
     }
 
@@ -81,7 +83,8 @@ public class GatewayBehaviorTests
 
         var spaceResult = await gateway.CreateSpaceAsync("InboxSample", ownerToken.AccessToken);
         Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
-        var spaceRef = spaceResult.Value;
+        Assert.True(spaceResult.Success, $"create-space failed: {spaceResult.Message}");
+        var spaceRef = spaceResult.Value!;
 
         var objectPayload = new ResourceEnvelope(
             "openmsa.io/v1alpha1",
@@ -115,12 +118,13 @@ public class GatewayBehaviorTests
 
         var senderList = await gateway.ListResourcesAsync(spaceRef, "inbox", senderToken.AccessToken, null, null, 10);
         Assert.True(senderList.Success);
-        Assert.Empty(senderList.Value.Items);
+        Assert.NotNull(senderList.Value);
+        Assert.Empty(senderList.Value!.Items);
 
-        var senderRead = await gateway.GetResourceAsync(spaceRef, "inbox", deposit.Value.Metadata.ResourceId, senderToken.AccessToken);
+        var senderRead = await gateway.GetResourceAsync(spaceRef, "inbox", deposit.Value!.Metadata.ResourceId, senderToken.AccessToken);
         Assert.False(senderRead.Success);
 
-        var ownerRead = await gateway.GetResourceAsync(spaceRef, "inbox", deposit.Value.Metadata.ResourceId, ownerToken.AccessToken);
+        var ownerRead = await gateway.GetResourceAsync(spaceRef, "inbox", deposit.Value!.Metadata.ResourceId, ownerToken.AccessToken);
         Assert.True(ownerRead.Success, $"{ownerRead.Error} {ownerRead.Message}");
     }
 
