@@ -77,4 +77,36 @@ public class JwtTests
 
         Assert.Throws<SecurityTokenInvalidAudienceException>(() => identity.ValidateToken(token.AccessToken, "different-aud"));
     }
+
+    [Fact]
+    public void Wrong_issuer_is_rejected()
+    {
+        var keyRing = new IdentityKeyRing();
+        keyRing.GenerateNew("k1");
+        var badIssuerService = new JwtService(keyRing, new JwtOptions { MobileHashSecret = "test-secret", Issuer = "bad-issuer", Audience = "openmsa-gateway" });
+        var user = new IdentityUser("usr_iss", "15550102030", "hash", "abcd", ["member"], true, DateTimeOffset.UtcNow);
+        var token = badIssuerService.IssueToken(user);
+
+        var goodIssuerService = new JwtService(keyRing, new JwtOptions { MobileHashSecret = "test-secret", Issuer = "good-issuer", Audience = "openmsa-gateway" });
+        var validator = new IdentityService(new InMemoryIdentityStore(), new PasswordService(), goodIssuerService, "test-secret");
+
+        Assert.Throws<SecurityTokenInvalidIssuerException>(() => validator.ValidateToken(token, "openmsa-gateway"));
+    }
+
+    [Fact]
+    public void Alg_none_is_rejected()
+    {
+        var keyRing = new IdentityKeyRing();
+        keyRing.GenerateNew("k1");
+        var jwtService = new JwtService(keyRing, new JwtOptions { MobileHashSecret = "test-secret" });
+        var identity = new IdentityService(new InMemoryIdentityStore(), new PasswordService(), jwtService, "test-secret");
+        var user = new IdentityUser("usr_none", "15550102030", "hash", "abcd", ["member"], true, DateTimeOffset.UtcNow);
+        var token = jwtService.IssueToken(user);
+
+        var segments = token.Split('.');
+        var payload = segments[1];
+        var forged = $"eyJhbGciOiJub25lIn0.{payload}.";
+
+        Assert.ThrowsAny<SecurityTokenException>(() => identity.ValidateToken(forged, "openmsa-gateway"));
+    }
 }

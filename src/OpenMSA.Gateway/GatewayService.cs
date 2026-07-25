@@ -70,7 +70,7 @@ public sealed class GatewayService
             {
                 ["private"] = new SectionSpec("private", [OperationKind.Create, OperationKind.Query, OperationKind.Read, OperationKind.Update, OperationKind.Delete]),
                 ["inbox"] = new SectionSpec("inbox", [OperationKind.Deposit, OperationKind.Read, OperationKind.Query]),
-                ["salesBills"] = new SectionSpec("salesBills", [OperationKind.Deposit, OperationKind.Query, OperationKind.Read], "policies/sales-bills.json")
+                ["salesBills"] = new SectionSpec("salesBills", [OperationKind.Create, OperationKind.Deposit, OperationKind.Query, OperationKind.Read], "policies/sales-bills.json")
             }));
 
         if (!await _manifests.AddAsync(manifest, cancellationToken))
@@ -130,12 +130,18 @@ public sealed class GatewayService
         }
         if (request is null || string.IsNullOrWhiteSpace(request.StorageObjectRef))
             return GenericResponses.Invalid<ResourceEnvelope>("storageObjectRef required");
+        if (string.IsNullOrWhiteSpace(request.ResourceId) || !OpaqueId.IsMatch(request.ResourceId))
+            return GenericResponses.Invalid<ResourceEnvelope>("invalid resourceId");
+
+        var existing = await _index.GetAsync(manifest.Metadata.SpaceId, request.ResourceId, cancellationToken);
+        if (existing is not null)
+            return GenericResponses.Invalid<ResourceEnvelope>("duplicate deposit");
 
         var receiverHash = GetClaim(request.Claims, "receiverMobileHash");
         if (string.IsNullOrWhiteSpace(receiverHash))
             return GenericResponses.Invalid<ResourceEnvelope>("receiverMobileHash missing");
 
-        var resourceId = IdGenerator.NewId(IdSchemes.Resource);
+        var resourceId = request.ResourceId;
         var claims = request.Claims.ToDictionary(k => k.Key, k => k.Value);
         var envelope = new ResourceEnvelope(
             "openmsa.io/v1alpha1",
@@ -281,30 +287,20 @@ public sealed class GatewayService
         if (replace && !string.Equals(provided.Metadata.ResourceId, resourceId, StringComparison.Ordinal))
             return GenericResponses.Invalid<ResourceEnvelope>("resourceId mismatch");
 
-        if (string.IsNullOrWhiteSpace(provided.Metadata.ResourceId) || string.Equals(provided.Metadata.ResourceId, default))
+        var finalResourceId = resourceId
+            ?? (string.IsNullOrWhiteSpace(provided.Metadata.ResourceId) || string.Equals(provided.Metadata.ResourceId, default)
+                ? IdGenerator.NewId(IdSchemes.Resource)
+                : provided.Metadata.ResourceId);
+
+        provided = provided with
         {
-            provided = provided with
-            {
-                Metadata = new ResourceMetadata(
-                    IdGenerator.NewId(IdSchemes.Resource),
-                    manifest.Metadata.SpaceId,
-                    subject.Id,
-                    "1.0.0",
-                    DateTimeOffset.UtcNow),
-            };
-        }
-        else
-        {
-            provided = provided with
-            {
-                Metadata = new ResourceMetadata(
-                    provided.Metadata.ResourceId,
-                    manifest.Metadata.SpaceId,
-                    subject.Id,
-                    provided.Metadata.SchemaVersion,
-                    provided.Metadata.CreatedAt == default ? DateTimeOffset.UtcNow : provided.Metadata.CreatedAt),
-            };
-        }
+            Metadata = new ResourceMetadata(
+                finalResourceId,
+                manifest.Metadata.SpaceId,
+                subject.Id,
+                "1.0.0",
+                DateTimeOffset.UtcNow),
+        };
 
         if (!ResourceClaimsAllowed(provided.Claims))
             return GenericResponses.Invalid<ResourceEnvelope>("invalid trusted metadata");
