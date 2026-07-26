@@ -22,8 +22,51 @@ Options:
   --chrome-profile <name> Chrome profile directory to use (default: Default)
   --chrome-binary <path> Full path to Chrome/Chromium executable
   --user-data-dir <path> Full path to Chrome/Chromium profile root (optional)
+                         If omitted, this script auto-detects Chrome profile path.
   --no-browser           Skip opening browser automatically
 `);
+}
+
+function fileExists(filePath) {
+  return fs.existsSync(filePath);
+}
+
+function resolveChromeBinary(cliBinary) {
+  if (cliBinary && fileExists(cliBinary)) return cliBinary;
+  if (process.env.OPENMSA_CHROME_BINARY && fileExists(process.env.OPENMSA_CHROME_BINARY)) {
+    return process.env.OPENMSA_CHROME_BINARY;
+  }
+
+  if (process.platform !== 'win32') {
+    return null;
+  }
+
+  const localAppData = process.env.LOCALAPPDATA;
+  const candidates = [
+    path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Chromium', 'Application', 'chrome.exe')
+  ];
+
+  return candidates.find(fileExists) || null;
+}
+
+function resolveChromeUserDataDir(cliUserDataDir) {
+  if (cliUserDataDir && fileExists(cliUserDataDir)) return cliUserDataDir;
+  if (process.env.OPENMSA_CHROME_USER_DATA_DIR && fileExists(process.env.OPENMSA_CHROME_USER_DATA_DIR)) {
+    return process.env.OPENMSA_CHROME_USER_DATA_DIR;
+  }
+
+  if (process.platform !== 'win32' || !process.env.LOCALAPPDATA) {
+    return null;
+  }
+
+  const chromiumDataDir = path.join(process.env.LOCALAPPDATA, 'Chromium', 'User Data');
+  const chromeDataDir = path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'User Data');
+
+  if (fileExists(chromiumDataDir)) return chromiumDataDir;
+  if (fileExists(chromeDataDir)) return chromeDataDir;
+  return null;
 }
 
 function parseArgs(argv) {
@@ -144,19 +187,25 @@ async function authorize(
   console.log(`Open in browser: ${url}`);
   if (!noBrowser) {
     const browserArgs = [`--profile-directory=${chromeProfile}`];
-    const finalUserDataDir = userDataDir || process.env.OPENMSA_CHROME_USER_DATA_DIR;
+    const finalUserDataDir = resolveChromeUserDataDir(userDataDir);
     if (finalUserDataDir) {
       browserArgs.push(`--user-data-dir=${finalUserDataDir}`);
+    } else {
+      console.log('No Chrome profile root detected. Opening with browser defaults.');
+    }
+    const browserPath = resolveChromeBinary(browserBinary);
+    const appName = browserPath || process.env.OPENMSA_CHROME_BINARY || openBrowser.apps.chrome;
+    if (!browserPath && process.env.OPENMSA_CHROME_BINARY) {
+      console.log(`OPENMSA_CHROME_BINARY is set but not found at: ${process.env.OPENMSA_CHROME_BINARY}`);
     }
     try {
-      const browserPath = browserBinary || process.env.OPENMSA_CHROME_BINARY;
       await openBrowser(url, {
         app: {
-          name: browserPath || openBrowser.apps.chrome,
+          name: appName,
           arguments: browserArgs
         }
       });
-      const target = browserPath || 'default Chrome launcher';
+      const target = appName || 'default browser launcher';
       console.log(`Opened browser for OAuth at ${target}`);
       if (browserArgs.length) {
         console.log(`Browser args: ${browserArgs.join(' ')}`);

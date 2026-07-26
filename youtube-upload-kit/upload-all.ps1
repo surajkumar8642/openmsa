@@ -8,8 +8,52 @@ param(
     [string]$ChromeBinary = "",
     [string]$ChromeUserDataDir = "",
     [string]$ChromeProfile = "Default",
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$UseDefaultChromeProfile = $true
 )
+
+$resolveChromeProfile = {
+    param([string]$PathCandidate)
+    if (-not $PathCandidate) { return "" }
+    if (Test-Path $PathCandidate) { return $PathCandidate }
+    return ""
+}
+
+if ($UseDefaultChromeProfile) {
+    $chromeBinary = ""
+    $resolvedUserDataDir = ""
+
+    $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles}\Google\Chrome\Application\chrome.exe")
+    if ($candidate) { $chromeBinary = $candidate }
+    if (-not $chromeBinary) {
+      $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+      if ($candidate) { $chromeBinary = $candidate }
+    }
+    if (-not $chromeBinary) {
+      $candidate = $resolveChromeProfile.Invoke("${env:LOCALAPPDATA}\Chromium\Application\chrome.exe")
+      if ($candidate) { $chromeBinary = $candidate }
+    }
+    if (-not $ChromeBinary -and $chromeBinary) {
+        $ChromeBinary = $chromeBinary
+    }
+
+    $resolvedProfileDir = $resolveChromeProfile.Invoke("${env:LOCALAPPDATA}\Google\Chrome\User Data")
+    if ($resolvedProfileDir) { $resolvedUserDataDir = $resolvedProfileDir }
+    if (-not $resolvedProfileDir) {
+      $resolvedProfileDir = $resolveChromeProfile.Invoke("${env:LOCALAPPDATA}\Chromium\User Data")
+      if ($resolvedProfileDir) { $resolvedUserDataDir = $resolvedProfileDir }
+    }
+    if (-not $ChromeUserDataDir -and $resolvedUserDataDir) {
+      $ChromeUserDataDir = $resolvedUserDataDir
+    }
+
+    if ($ChromeBinary) {
+        Write-Host "Using Chrome executable: $ChromeBinary" -ForegroundColor Cyan
+    }
+    if ($ChromeUserDataDir) {
+        Write-Host "Using Chrome user-data dir: $ChromeUserDataDir" -ForegroundColor Cyan
+    }
+}
 
 $ErrorActionPreference = "Stop"
 $kitRoot = $PSScriptRoot
