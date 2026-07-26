@@ -1,6 +1,6 @@
 # OpenMSA YouTube Upload Kit
 
-This kit uploads `openmsa-intro.mp4` to two YouTube channels and reuses your default Chrome/Chromium profile the way you use the browser normally.
+This kit uploads `openmsa-intro-final-voice.mp4` (narrated version) to two YouTube channels and reuses your default Chrome/Chromium profile the way you use the browser normally.
 
 ## What is included
 
@@ -76,13 +76,19 @@ Manual confirmation flow (click-style):
 .\upload-all.ps1 -VideoPath "D:\suraj2\Pictures\openmsa-intro.mp4" -CredentialsPath ".\client_secret.json" -Interactive
 ```
 
+If you generated a better edited version, replace the path:
+
+```powershell
+.\upload-all.ps1 -VideoPath "D:\suraj2\Pictures\openmsa-intro-final-voice.mp4" -CredentialsPath ".\client_secret.json" -Interactive
+```
+
 Before each channel upload, the script prints the current channel and the latest videos, then waits for Enter.
 
 ### Explicit profile overrides (optional)
 
 ```powershell
 .\upload-all.ps1 `
-  -VideoPath "D:\suraj2\Pictures\openmsa-intro.mp4" `
+  -VideoPath "D:\suraj2\Pictures\openmsa-intro-final-voice.mp4" `
   -CredentialsPath ".\client_secret.json" `
   -ChromeBinary "C:\Program Files\Google\Chrome\Application\chrome.exe" `
   -ChromeUserDataDir "$env:LOCALAPPDATA\Google\Chrome\User Data" `

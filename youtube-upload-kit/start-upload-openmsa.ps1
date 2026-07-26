@@ -1,5 +1,5 @@
 param(
-    [string]$VideoPath = "D:\suraj2\Pictures\openmsa-intro.mp4",
+    [string]$VideoPath = "D:\suraj2\Pictures\openmsa-intro-final-voice.mp4",
     [string]$CredentialsPath = ".\client_secret.json",
     [string]$ChromeBinary = "",
     [string]$ChromeUserDataDir = "",

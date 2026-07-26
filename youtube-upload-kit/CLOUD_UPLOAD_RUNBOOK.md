@@ -3,7 +3,7 @@
 Use this when you want manual, click-by-click uploading using your already logged-in Chromium profile.
 
 ## 0) What this runbook is for
-- Upload `openmsa-intro.mp4` to your EC channel in two places (channel-1 and channel-2 metadata).
+- Upload `openmsa-intro-final-voice.mp4` to your EC channel in two places (channel-1 and channel-2 metadata).
 - Keep each upload manual in the browser (click workflow), while the metadata and checks stay controlled.
 - Use this on the same Windows login where Chromium profile is already authenticated.
 
@@ -11,11 +11,11 @@ Use this when you want manual, click-by-click uploading using your already logge
 Open PowerShell and run:
 
 ```powershell
-$chrome = 'C:\Users\suraj2\AppData\Local\Chromium\Application\chrome.exe'
-$userData = 'C:\Users\suraj2\AppData\Local\Chromium\User Data'
-$profile = 'Default'
-$url = 'https://studio.youtube.com/channel/UCQ42FdzfJ8OAgtInyvYIsZA/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D'
-$args = @("--user-data-dir=$userData","--profile-directory=$profile","--new-window",$url)
+$chrome = "C:\Users\suraj2\AppData\Local\Chromium\Application\chrome.exe"
+$userData = "C:\Users\suraj2\AppData\Local\Chromium\User Data"
+$profile = "Default"
+$url = "https://studio.youtube.com/channel/UCQ42FdzfJ8OAgtInyvYIsZA/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D"
+$args = @("--user-data-dir=$userData", "--profile-directory=$profile", "--new-window", $url)
 Start-Process -FilePath $chrome -ArgumentList $args
 ```
 
@@ -41,7 +41,7 @@ At minimum, use:
 ## 4) Manual upload flow (recommended)
 For each target metadata entry:
 1. Click **Create** → **Upload videos** in YouTube Studio.
-2. Drag or choose `openmsa-intro.mp4`.
+2. Drag or choose `openmsa-intro-final-voice.mp4`.
 3. Set Title/Description exactly as intended.
 4. Set tags if needed.
 5. Set privacy status (usually Public/Unlisted for this project).

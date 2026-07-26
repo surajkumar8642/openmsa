@@ -1,6 +1,6 @@
 # OpenMSA intro upload materials checklist
 
-Source video: `D:\suraj2\Pictures\openmsa-intro.mp4`
+Source video: `D:\suraj2\Pictures\openmsa-intro-final-voice.mp4`
 
 Per channel you need:
 - MP4 source
