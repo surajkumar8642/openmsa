@@ -24,14 +24,14 @@ if ($UseDefaultChromeProfile) {
     $chromeBinary = ""
     $resolvedUserDataDir = ""
 
-    $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles}\Google\Chrome\Application\chrome.exe")
+    $candidate = $resolveChromeProfile.Invoke("${env:LOCALAPPDATA}\Chromium\Application\chrome.exe")
     if ($candidate) { $chromeBinary = $candidate }
     if (-not $chromeBinary) {
-      $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+      $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles}\Google\Chrome\Application\chrome.exe")
       if ($candidate) { $chromeBinary = $candidate }
     }
     if (-not $chromeBinary) {
-      $candidate = $resolveChromeProfile.Invoke("${env:LOCALAPPDATA}\Chromium\Application\chrome.exe")
+      $candidate = $resolveChromeProfile.Invoke("${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
       if ($candidate) { $chromeBinary = $candidate }
     }
     if (-not $ChromeBinary -and $chromeBinary) {

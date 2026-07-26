@@ -1,6 +1,8 @@
 param(
     [string]$VideoPath = "D:\suraj2\Pictures\openmsa-intro.mp4",
     [string]$CredentialsPath = ".\client_secret.json",
+    [string]$ChromeBinary = "",
+    [string]$ChromeUserDataDir = "",
     [string]$ChromeProfile = "",
     [switch]$Interactive,
     [switch]$NoBrowser
@@ -11,9 +13,10 @@ $kitRoot = $PSScriptRoot
 
 function Resolve-ChromeBinary {
     $candidates = @(
+        "${env:LOCALAPPDATA}\Chromium\Application\chrome.exe",
         "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
         "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-        "${env:LOCALAPPDATA}\Chromium\Application\chrome.exe"
+        "${env:LOCALAPPDATA}\Google\Chrome\Application\chrome.exe"
     )
     foreach ($candidate in $candidates) {
         if (Test-Path $candidate) {
@@ -69,8 +72,8 @@ if (-not (Test-Path $ResolvedCredentials)) {
     throw "Credentials file not found: $ResolvedCredentials"
 }
 
-$chromeBinary = Resolve-ChromeBinary
-$chromeUserDataDir = Resolve-ChromeUserDataDir
+$chromeBinary = if ($ChromeBinary) { $ChromeBinary } else { Resolve-ChromeBinary }
+$chromeUserDataDir = if ($ChromeUserDataDir) { $ChromeUserDataDir } else { Resolve-ChromeUserDataDir }
 $detectedProfile = if ($chromeUserDataDir) { Get-ActiveProfileName -UserDataDir $chromeUserDataDir } else { $null }
 
 if (-not $ChromeProfile) {
