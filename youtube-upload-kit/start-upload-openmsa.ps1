@@ -2,6 +2,7 @@ param(
     [string]$VideoPath = "D:\suraj2\Pictures\openmsa-intro.mp4",
     [string]$CredentialsPath = ".\client_secret.json",
     [string]$ChromeProfile = "Default",
+    [switch]$Interactive,
     [switch]$NoBrowser
 )
 
@@ -60,4 +61,4 @@ if (-not $chromeUserDataDir) {
 }
 
 Set-Location $kitRoot
-& .\upload-all.ps1 -VideoPath $ResolvedVideo -CredentialsPath $ResolvedCredentials -ChromeProfile $ChromeProfile -ChromeBinary $chromeBinary -ChromeUserDataDir $chromeUserDataDir -NoBrowser:$NoBrowser
+& .\upload-all.ps1 -VideoPath $ResolvedVideo -CredentialsPath $ResolvedCredentials -ChromeProfile $ChromeProfile -ChromeBinary $chromeBinary -ChromeUserDataDir $chromeUserDataDir -NoBrowser:$NoBrowser -Interactive:$Interactive

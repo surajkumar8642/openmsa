@@ -46,6 +46,12 @@ Quick default run (uses auto-detected Chrome profile):
 .\start-upload-openmsa.ps1
 ```
 
+Quick double-click style run (default interactive per channel):
+
+```powershell
+.\start-upload-openmsa.ps1 -Interactive
+```
+
 If you keep the video in a different location:
 
 ```powershell
@@ -85,7 +91,7 @@ Before each channel upload, the script prints the current channel and the latest
 
 ## Start button / pinning flow
 
-Use the following for one-step desktop launch:
+Use the following for one-step desktop launch (interactive by default):
 
 ```powershell
 .\start-upload-openmsa.cmd
