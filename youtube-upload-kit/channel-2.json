@@ -1,0 +1,23 @@
+{
+  "name": "channel-2",
+  "title": "OpenMSA v1.0 Alpha: Safe Decentralized Data Spaces in .NET",
+  "description": "This demo introduces OpenMSA, an open-source reference architecture for governed data spaces.\n\nWatch to learn:\n- Managed Space model and fixed global contract\n- Asymmetric identity with JWT + JWKS\n- Local policy engine with default deny\n- Local index-based lookups (no raw folder enumeration)\n- Write-only inbox for inbound deliveries\n\nRepository:\nhttps://github.com/surajkumar8642/openmsa\n\nFor developers: full .NET implementation + example API included.",
+  "tags": [
+    "OpenMSA",
+    "dotnet",
+    "C#",
+    "backend",
+    "JWT",
+    "policy as code",
+    "secure API",
+    "identity",
+    "data exchange",
+    "decentralized systems",
+    "open source"
+  ],
+  "categoryId": "28",
+  "privacyStatus": "public",
+  "madeForKids": false,
+  "notifySubscribers": true,
+  "tokenPath": "tokens/channel-2.token.json"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "openmsa-youtube-upload-kit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenMSA two-channel YouTube upload helper scripts",
+  "type": "module",
+  "scripts": {
+    "install-deps": "npm install"
+  },
+  "dependencies": {
+    "googleapis": "146.0.0",
+    "open": "10.1.0"
+  }
+}

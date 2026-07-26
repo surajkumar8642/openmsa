@@ -20,3 +20,5 @@ TestResults/
 openmsa-keys/
 appsettings.Development.json
 logs/
+youtube-upload-kit/client_secret.json
+youtube-upload-kit/tokens/*.json

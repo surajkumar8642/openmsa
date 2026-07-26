@@ -1,0 +1,26 @@
+{
+  "name": "channel-1",
+  "title": "OpenMSA Introduction: Governed Decentralized Data Spaces",
+  "description": "OpenMSA is an open-source managed-space architecture for governed, decentralized data spaces.\n\nThis short introduction covers:\n- Why OpenMSA is not a filesystem abstraction\n- Gateway-first secure access design\n- Identity signing, stateless authorization, local index lookup\n- Write-only inbox and policy-based resource access\n\nProject:\nhttps://github.com/surajkumar8642/openmsa\n\nIf you are building safer B2B data exchange, this is a practical reference implementation.\n\nRepo status is public and actively evolving.",
+  "tags": [
+    "OpenMSA",
+    "decentralized data space",
+    "data governance",
+    "identity",
+    "JWT",
+    "policy engine",
+    "gateway architecture",
+    "write only inbox",
+    "index based authorization",
+    "dotnet",
+    "C#",
+    "open source",
+    "software architecture",
+    "API design"
+  ],
+  "categoryId": "28",
+  "privacyStatus": "public",
+  "madeForKids": false,
+  "notifySubscribers": true,
+  "tokenPath": "tokens/channel-1.token.json"
+}
