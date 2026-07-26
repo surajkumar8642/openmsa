@@ -19,7 +19,6 @@ Options:
   --video <path>         Full path to MP4
   --metadata <path>      Metadata json (channel-1.json / channel-2.json)
   --credentials <path>   OAuth client secret json from Google Cloud
-  --channel <name>       Optional override name used for logs
   --chrome-profile <name> Chrome profile directory to use (default: Default)
   --chrome-binary <path> Full path to Chrome/Chromium executable
   --user-data-dir <path> Full path to Chrome/Chromium profile root (optional)
