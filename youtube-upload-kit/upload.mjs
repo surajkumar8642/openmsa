@@ -154,6 +154,78 @@ function waitForAuthCode(redirectUri) {
   });
 }
 
+async function preUploadChecks(youtubeClient, metadata) {
+  const channelResponse = await youtubeClient.channels.list({
+    part: ['snippet', 'contentDetails'],
+    mine: true
+  });
+  const channel = channelResponse.data.items?.[0];
+  if (!channel) {
+    throw new Error('No YouTube channel available for authenticated identity.');
+  }
+
+  const channelTitle = channel.snippet?.title || '<no-title>';
+  const channelId = channel.id || '<no-id>';
+  console.log(`Authenticated channel: ${channelTitle} (${channelId})`);
+
+  if (metadata.expectedChannelName) {
+    const expected = String(metadata.expectedChannelName).toLowerCase();
+    if (!channelTitle.toLowerCase().includes(expected)) {
+      throw new Error(`Expected channel name containing "${metadata.expectedChannelName}" but authenticated channel is "${channelTitle}".`);
+    }
+  }
+
+  const scanLimit = Number(metadata.precheckUploadsLimit ?? 20);
+  if (!Number.isFinite(scanLimit) || scanLimit < 0) {
+    throw new Error('Invalid metadata.precheckUploadsLimit value; must be a non-negative number.');
+  }
+
+  const uploadsPlaylistId = channel.contentDetails?.relatedPlaylists?.uploads;
+  const maxToLoad = Math.min(scanLimit, 200);
+  const recent = [];
+  let nextPageToken = undefined;
+  while (recent.length < maxToLoad && uploadsPlaylistId) {
+    const page = Math.min(50, maxToLoad - recent.length);
+    const playlist = await youtubeClient.playlistItems.list({
+      part: ['snippet'],
+      playlistId: uploadsPlaylistId,
+      maxResults: page,
+      pageToken: nextPageToken
+    });
+
+    const items = playlist.data.items ?? [];
+    for (const item of items) {
+      if (!item?.snippet) continue;
+      recent.push({
+        title: item.snippet.title || '',
+        id: item.snippet.resourceId?.videoId || '',
+        publishedAt: item.snippet.publishedAt || ''
+      });
+      if (recent.length >= maxToLoad) break;
+    }
+    nextPageToken = playlist.data.nextPageToken;
+    if (!nextPageToken) break;
+  }
+
+  if (recent.length > 0) {
+    console.log('Recent uploads:');
+    for (const item of recent) {
+      const published = item.publishedAt ? new Date(item.publishedAt).toISOString() : 'unknown';
+      console.log(`  - ${published} ${item.id || 'no-id'} | ${item.title}`);
+    }
+  } else {
+    console.log('No recent uploads available for this channel.');
+  }
+
+  if (metadata.failOnDuplicateTitle && metadata.title) {
+    const targetTitle = String(metadata.title).toLowerCase();
+    const found = recent.some((item) => item.title.toLowerCase() === targetTitle);
+    if (found) {
+      throw new Error(`Duplicate title blocked by policy: "${metadata.title}". Use a different title or set failOnDuplicateTitle=false.`);
+    }
+  }
+}
+
 async function authorize(
   credentialsFile,
   tokenPath,
@@ -323,6 +395,8 @@ async function main() {
     args['chrome-binary'] || null,
     args['user-data-dir'] || null
   );
+  const youtube = google.youtube({ version: 'v3', auth });
+  await preUploadChecks(youtube, metadata);
 
   await uploadVideo(videoPath, metadata, auth);
 }

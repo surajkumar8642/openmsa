@@ -22,5 +22,8 @@
   "privacyStatus": "public",
   "madeForKids": false,
   "notifySubscribers": true,
+  "expectedChannelName": "EC",
+  "precheckUploadsLimit": 40,
+  "failOnDuplicateTitle": true,
   "tokenPath": "tokens/channel-1.token.json"
 }

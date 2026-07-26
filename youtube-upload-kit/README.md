@@ -8,6 +8,7 @@ This kit uploads `openmsa-intro.mp4` to two YouTube channels and reuses your def
 - `upload-all.ps1` – uploads to both channels (channel-1 + channel-2)
 - `start-upload-openmsa.ps1` – one-click PowerShell launcher using auto-detected Chrome profile
 - `start-upload-openmsa.cmd` – double-click/Start Menu friendly launcher
+- `create-openmsa-upload-shortcut.ps1` – build desktop/start menu shortcuts
 - `channel-1.json`, `channel-2.json` – per-channel metadata
 - `materials-checklist.md` – required content checklist
 - `tokens/` – created automatically after OAuth (not committed)
@@ -63,6 +64,14 @@ You can also keep the original command:
 .\upload-all.ps1 -VideoPath "D:\suraj2\Pictures\openmsa-intro.mp4" -CredentialsPath ".\client_secret.json"
 ```
 
+Manual confirmation flow (click-style):
+
+```powershell
+.\upload-all.ps1 -VideoPath "D:\suraj2\Pictures\openmsa-intro.mp4" -CredentialsPath ".\client_secret.json" -Interactive
+```
+
+Before each channel upload, the script prints the current channel and the latest videos, then waits for Enter.
+
 ### Explicit profile overrides (optional)
 
 ```powershell
@@ -85,11 +94,23 @@ Use the following for one-step desktop launch:
 - You can create a shortcut to `start-upload-openmsa.cmd` and pin it to Start for one-click usage.
 - For quick updates, right-click the shortcut → Properties, set **Start in** to this folder.
 
+Optional: generate shortcuts automatically (desktop + start menu):
+
+```powershell
+.\create-openmsa-upload-shortcut.ps1
+```
+
+Use `-DesktopOnly` or `-StartMenuOnly` if you want only one location.
+
 ## Useful checks
 
 - If browser does not auto-open, open the printed OAuth URL manually in Chrome/Chromium.
 - If OAuth shows redirect URI mismatch, verify the OAuth client includes:
   - `http://localhost:8787/oauth2callback`
+- `upload.mjs` now validates before upload:
+  - Authenticated channel name match (`expectedChannelName` in metadata)
+  - latest uploads scan (`precheckUploadsLimit`)
+  - duplicate title guard (`failOnDuplicateTitle`)
 - Token files are created as:
   - `youtube-upload-kit/tokens/channel-1.token.json`
   - `youtube-upload-kit/tokens/channel-2.token.json`

@@ -9,7 +9,8 @@ param(
     [string]$ChromeUserDataDir = "",
     [string]$ChromeProfile = "Default",
     [switch]$NoBrowser,
-    [switch]$UseDefaultChromeProfile = $true
+    [switch]$UseDefaultChromeProfile = $true,
+    [switch]$Interactive
 )
 
 $resolveChromeProfile = {
@@ -65,6 +66,10 @@ $metadataFiles = @(
 
 foreach ($metadataFile in $metadataFiles) {
     Write-Host "=== Uploading via metadata: $metadataFile ===" -ForegroundColor Cyan
+    if ($Interactive) {
+        $metadataName = (Get-Content $metadataFile | ConvertFrom-Json).name
+        Read-Host "Press Enter to continue upload for [$metadataName]"
+    }
     $nodeScript = Join-Path $kitRoot "upload.mjs"
     $argsList = @(
         $nodeScript,
